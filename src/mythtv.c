@@ -1499,7 +1499,7 @@ mythtv_pending_filter(mvp_widget_t *widget, mythtv_filter_t filter)
 	int days = 0, last_day = 0, displayed = 0;
 	cmyth_proginfo_t prog = NULL;
 	time_t t, rec_t, last_t = 0;
-	struct tm *tm, rec_tm;
+	struct tm rec_tm;
 	char buf[64];
 	char *filter_title = NULL;
 
@@ -1532,7 +1532,6 @@ mythtv_pending_filter(mvp_widget_t *widget, mythtv_filter_t filter)
 	pthread_mutex_lock(&myth_mutex);
 
 	t = time(NULL);
-	tm = localtime(&t);
 
 	mvpw_set_text_str(mythtv_channel, "");
 	mvpw_set_text_str(mythtv_date, "");
@@ -1856,6 +1855,37 @@ event_start(void *arg)
 			break;
 		case CMYTH_EVENT_ASK_RECORDING:
 			printf("MythTV event ASK RECORDING\n");
+			break;
+		/* TODO: Do something sensible with the events below */
+		case CMYTH_EVENT_RECORDING_LIST_CHANGE_ADD:
+			printf("MythTV event CMYTH_EVENT_RECORDING_LIST_CHANGE_ADD\n");
+		/*	episode_dirty = 1;
+			mvpw_expose(mythtv_browser);	*/
+			break;
+		case CMYTH_EVENT_RECORDING_LIST_CHANGE_UPDATE:
+			printf("MythTV event CMYTH_EVENT_RECORDING_LIST_CHANGE_UPDATE\n");
+		/*	episode_dirty = 1;
+			mvpw_expose(mythtv_browser);	*/
+			break;
+		case CMYTH_EVENT_RECORDING_LIST_CHANGE_DELETE:
+			printf("MythTV event CMYTH_EVENT_RECORDING_LIST_CHANGE_DELETE\n");
+		/*	episode_dirty = 1;
+			mvpw_expose(mythtv_browser);	*/
+			break;
+		case CMYTH_EVENT_WATCH_LIVETV:
+			printf("MythTV event CMYTH_EVENT_WATCH_LIVETV\n");
+			break;
+		case CMYTH_EVENT_SYSTEM_EVENT:
+			printf("MythTV event CMYTH_EVENT_SYSTEM_EVENT\n");
+			break;
+		case CMYTH_EVENT_UPDATE_FILE_SIZE:
+			printf("MythTV event CMYTH_EVENT_UPDATE_FILE_SIZE\n");
+			break;
+		case CMYTH_EVENT_GENERATED_PIXMAP:
+			printf("MythTV event CMYTH_EVENT_GENERATED_PIXMAP\n");
+			break;
+		case CMYTH_EVENT_CLEAR_SETTINGS_CACHE:
+			printf("MythTV event CMYTH_EVENT_CLEAR_SETTINGS_CACHE\n");
 			break;
 		}
 	}
@@ -3055,8 +3085,6 @@ mythtv_schedule_recording(mvp_widget_t *widget, char *item , void *key, int type
 	long i;
 	int rec_id=0;
 	cmyth_conn_t ctrl = ref_hold(control);
-	char *string;
-	unsigned int len;
 	//int rcrd = sqlprog[which].recording;
 	char *startoffset=NULL,*endoffset=NULL;
 	char *recordid=NULL;
@@ -3115,11 +3143,6 @@ mythtv_schedule_recording(mvp_widget_t *widget, char *item , void *key, int type
 			//	fprintf(stderr, "MythTV - Episode already scheduled or recorded, do not duplicate\n");
 			//}
 			
-		       	len = strlen(sqlprog[which].seriesid);
-			string=malloc(len * sizeof(char));
-
-			string = cmyth_mysql_escape_chars(mythtv_database,sqlprog[which].seriesid);
- 
 			switch (cmyth_conn_get_protocol_version(control)) {
 
 			case 15:
@@ -3521,7 +3544,7 @@ static int
 mythtv_guide_menu_update(mvp_widget_t *widget, time_t starttime, time_t endtime, mvp_widget_t *pane1, mvp_widget_t *pane2, mvp_widget_t *pane3, mvp_widget_t *pane4)
 {
 	long i=0;
-	int sqlcount,count;
+	int sqlcount;
 	char buf[256];
 	mythtv_schedule_data_t * user_data = mvpw_get_user_data(widget);
 
@@ -3560,7 +3583,7 @@ mythtv_guide_menu_update(mvp_widget_t *widget, time_t starttime, time_t endtime,
 
 
 	if (sqlprog != NULL) { 
-		free(sqlprog);
+		ref_release(sqlprog);
 		sqlprog=NULL;
 	}
 	if (sqlrecgroups != NULL) { 
@@ -3577,7 +3600,7 @@ mythtv_guide_menu_update(mvp_widget_t *widget, time_t starttime, time_t endtime,
 			__FUNCTION__, __FILE__, __LINE__); 
 		snprintf(buf, sizeof(buf),"No Guide retuned from Database...\nDatabase Error.  Please check your settings\n" );
 		mvpw_add_menu_item(widget, buf , (void*)-1, &item_attr);
-		free(sqlprog);
+		ref_release(sqlprog);
 		goto out;
 	}
        	user_data->myptr->sqlcount = sqlcount;
@@ -3601,7 +3624,6 @@ mythtv_guide_menu_update(mvp_widget_t *widget, time_t starttime, time_t endtime,
 	mvpw_clear_menu(widget);
 	mvpw_add_menu_item(widget, "Get Next Hour", (void*)-2, &item_attr);
 	mvpw_add_menu_item(widget, "Get Previous Hour", (void*)-1, &item_attr);
-	count = sqlcount;
 
 	for (i=0; i<sqlcount; i++) {
 		switch (sqlprog[i].recording) {
@@ -3781,7 +3803,7 @@ int
 mythtv_prog_finder_char_menu_right (int direction, mvp_widget_t *widget, mvp_widget_t *widget2, mvp_widget_t *widget3) 
 {
 	long i=0;
-	int sqlcount,count;
+	int sqlcount;
 	char buf[256];
 	time_t starttime;
 
@@ -3808,7 +3830,7 @@ mythtv_prog_finder_char_menu_right (int direction, mvp_widget_t *widget, mvp_wid
 	pthread_mutex_lock(&myth_mutex);
 
 	if (sqlprog != NULL) { 
-		free(sqlprog);
+		ref_release(sqlprog);
 		sqlprog=NULL;
 	}
 	if ((sqlprog=malloc(sizeof(cmyth_program_t)*50))==NULL) {
@@ -3837,7 +3859,6 @@ mythtv_prog_finder_char_menu_right (int direction, mvp_widget_t *widget, mvp_wid
 	}
 */
 	mvpw_clear_menu(widget2);
-	count = sqlcount;
 
 	for (i=0; i<sqlcount; i++) {
 		snprintf(buf, sizeof(buf),"%s",sqlprog[i].title); 
@@ -3917,7 +3938,7 @@ mythtv_prog_finder_char_menu(mvp_widget_t *widget, mvp_widget_t *widget2, mvp_wi
 
 #ifdef UPDOWN		/* Remove since up/down arrow does not work to change titles */
 	if (sqlprog != NULL) { 
-		free(sqlprog);
+		ref_release(sqlprog);
 		sqlprog=NULL;
 	}
 	if ((sqlprog=malloc(sizeof(cmyth_program_t)*50))==NULL) {
@@ -3976,7 +3997,7 @@ int
 mythtv_prog_finder_title_menu_right (mvp_widget_t *widget, mvp_widget_t *widget2, mvp_widget_t *widget3) 
 {
 	long i=0;
-	int sqlcount,count;
+	int sqlcount;
 	char buf[256];
         time_t starttime;
 	char frmttime[25];
@@ -4008,7 +4029,7 @@ mythtv_prog_finder_title_menu_right (mvp_widget_t *widget, mvp_widget_t *widget2
 	pthread_mutex_lock(&myth_mutex);
 
 	if (sqlprog != NULL) { 
-		free(sqlprog);
+		ref_release(sqlprog);
 		sqlprog=NULL;
 	}
 	if ((sqlprog=malloc(sizeof(cmyth_program_t)*50))==NULL) {
@@ -4040,7 +4061,6 @@ mythtv_prog_finder_title_menu_right (mvp_widget_t *widget, mvp_widget_t *widget2
 	}
 
 	mvpw_clear_menu(widget3);
-	count = sqlcount;
 
 	for (i=0; i<sqlcount; i++) {
 		fprintf(stderr, "%s: Recording Type: %d\n", sqlprog[i].title, sqlprog[i].recording);
@@ -4267,7 +4287,7 @@ hilite_move_mythtv_options(mvp_widget_t *widget, char *item , void *key, bool hi
 }
 
 void
-commit_mythtv_delete_previos_recorded(mvp_widget_t *widget, char *item , void *key)
+commit_mythtv_delete_previous_recorded(mvp_widget_t *widget, char *item , void *key)
 {
 	long index = (long)key;
 	long which = (long) mvpw_menu_get_hilite(mythtv_browser);
@@ -4288,7 +4308,7 @@ commit_mythtv_delete_previos_recorded(mvp_widget_t *widget, char *item , void *k
 			//fprintf (stderr, "Removing %s\n",sqlprog[which].title);
 			snprintf(query,sizeof(query),"DELETE FROM oldrecorded WHERE chanid = '%d' AND starttime = %s",sqlprog[which].chanid,msg);
 			//fprintf (stderr, "query %s\n",query);
-			if ((err=cmyth_mythtv_remove_previos_recorded(mythtv_database,query))<0) {
+			if ((err=cmyth_mythtv_remove_previous_recorded(mythtv_database,query))<0) {
 				gui_mesg("Error Message","Recorded show was not removed");
 				goto out;
 			}
@@ -4297,7 +4317,7 @@ commit_mythtv_delete_previos_recorded(mvp_widget_t *widget, char *item , void *k
 			//fprintf (stderr, "Removing %s\n",sqlprog[which].title);
 			snprintf(query,sizeof(query),"DELETE FROM oldrecorded WHERE title = '%s'",sqlprog[which].title);
 			//fprintf (stderr, "query %s\n",query);
-			if ((err=cmyth_mythtv_remove_previos_recorded(mythtv_database,query)<0)) {
+			if ((err=cmyth_mythtv_remove_previous_recorded(mythtv_database,query)<0)) {
 				gui_mesg("Error Message","Recorded titles were not removed");
 				goto out;
 			}
@@ -4323,7 +4343,7 @@ mythtv_delete_previous_recorded(mvp_widget_t *widget, char *item , void *key)
 {
 	cmyth_dbg(CMYTH_DBG_ERROR, "FUNCTION: %s\n",__FUNCTION__);
 	mvpw_clear_menu(mythtv_options);
-	item_attr.select = commit_mythtv_delete_previos_recorded;
+	item_attr.select = commit_mythtv_delete_previous_recorded;
 	item_attr.hilite = hilite_move_mythtv_options;
 	mvpw_set_menu_title(mythtv_options,"Previously Recorded Episodes");
 	mvpw_add_menu_item(mythtv_options, "Go Back" , (void*)0, &item_attr);
@@ -4400,7 +4420,7 @@ run_mythtv_utils_prevrecorded(mvp_widget_t *widget,mvp_widget_t *mythtv_browser)
 		goto out;
 	}
 	if (sqlprog != NULL) {
-		free(sqlprog);
+		ref_release(sqlprog);
 		sqlprog=NULL;
 	}
 	sqlcount=cmyth_mysql_get_prev_recorded(mythtv_database,&sqlprog);
@@ -4409,7 +4429,7 @@ run_mythtv_utils_prevrecorded(mvp_widget_t *widget,mvp_widget_t *mythtv_browser)
 			 __FUNCTION__, __FILE__, __LINE__);
 		snprintf(buf, sizeof(buf),"No Data retuned from Database.\n" );
 		mvpw_add_menu_item(widget, buf , (void*)-1, &item_attr);
-		free(sqlprog);
+		ref_release(sqlprog);
 		goto out;
 	}
 	item_attr.select = mythtv_delete_previous_recorded;
@@ -4476,19 +4496,12 @@ mythtv_delete_recorded(mvp_widget_t *widget, char *item , void *key) {
 	long which = (long)key;
 	cmyth_proglist_t prog = ref_hold(pending_plist);
 	cmyth_proginfo_t progitem = NULL;
-	char *title, *subtitle,*callsign,*description;
-	long channum;
 	struct tm loctime;
 	char date[30];
 	char date1[5];
 	time_t start;
         cmyth_dbg(CMYTH_DBG_DEBUG, "Function :%s\n",__FUNCTION__);
 	if (( progitem = cmyth_proglist_get_item(prog,which) ) != NULL ) {
-		title = (char*)cmyth_proginfo_title(progitem);
-		subtitle = (char*)cmyth_proginfo_subtitle(progitem);
-		callsign = (char*)cmyth_proginfo_chansign(progitem);
-		description = (char*)cmyth_proginfo_description(progitem);
-		channum = (long)cmyth_proginfo_chan_id(progitem);
 	 	start = cmyth_timestamp_to_unixtime(cmyth_proginfo_rec_start(progitem));
 		localtime_r(&(start),&loctime);
 		strftime(date,25,"%a %b %d  %I:%M %p - ", &loctime);
